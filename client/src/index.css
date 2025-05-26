@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Optional safe background fix */
+body {
+  @apply bg-gradient-to-br from-blue-50 via-white to-purple-50;
+}
