@@ -19,26 +19,29 @@ const RentalAddEdit = () => {
   const [error, setError] = useState('');
   const [suggestions, setSuggestions] = useState({});
 
-  const fetchSuggestions = async (field, query) => {
+  const fetchSuggestions = async (field, query, index = 0) => {
   if (query.length < 1) return;
 
   try {
-    const token = localStorage.getItem('token'); // ✅ Make sure token exists
-
+    const token = localStorage.getItem('token');
     const res = await fetch(`/api/suggestions?field=${field}&query=${query}`, {
       headers: {
-        'Authorization': `Bearer ${token}` // ✅ Add token in request
+        'Authorization': `Bearer ${token}`
       }
     });
 
     if (!res.ok) throw new Error('Unauthorized');
-
     const data = await res.json();
-    setSuggestions(prev => ({ ...prev, [field]: data }));
+
+    setSuggestions(prev => ({
+      ...prev,
+      [`${field}_${index}`]: data   // ✅ store suggestion using field + index key
+    }));
   } catch (err) {
     console.error('Suggestion fetch failed:', err.message);
   }
 };
+
 
 
   const handleChange = async (e, index = null, field = null) => {

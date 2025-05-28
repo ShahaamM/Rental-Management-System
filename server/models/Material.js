@@ -1,10 +1,10 @@
 const mongoose = require('mongoose');
 
 const materialSchema = new mongoose.Schema({
-  itemName: String,
+  itemName: { type : String, required: true },
   quantity: Number,
   model: String,
-  price: Number,
+  price: { type: Number, required: true },
   notes: String,
   date: { type: Date, default: Date.now }
 });

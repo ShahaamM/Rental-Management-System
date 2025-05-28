@@ -1,15 +1,19 @@
 // src/pages/Settings.jsx
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const Settings = () => {
+  const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     currentPassword: '',
     newUsername: '',
     newPassword: '',
   });
+
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -32,7 +36,13 @@ const Settings = () => {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Update failed');
-      setMessage(data.message);
+
+      // ✅ Clear token and redirect to login
+      localStorage.removeItem('token');
+      setMessage('Update successful. Redirecting to login...');
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
     } catch (err) {
       setError(err.message);
     }
@@ -73,8 +83,8 @@ const Settings = () => {
         <button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
           Update
         </button>
-        {message && <p className="text-green-600">{message}</p>}
-        {error && <p className="text-red-600">{error}</p>}
+        {message && <p className="text-green-600 mt-2">{message}</p>}
+        {error && <p className="text-red-600 mt-2">{error}</p>}
       </form>
     </div>
   );
