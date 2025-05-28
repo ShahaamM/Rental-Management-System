@@ -19,7 +19,11 @@ const MaterialAddEdit = () => {
   useEffect(() => {
     if (id) {
       setLoading(true);
-      fetch(`/api/materials/${id}`)
+      fetch(`/api/materials/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      })
         .then(res => res.json())
         .then(data => setFormData(data))
         .catch(err => setError(err.message))
@@ -46,10 +50,13 @@ const MaterialAddEdit = () => {
     try {
       const method = id ? 'PUT' : 'POST';
       const url = id ? `/api/materials/${id}` : '/api/materials';
-      
+
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         body: JSON.stringify(formData),
       });
 
@@ -69,7 +76,6 @@ const MaterialAddEdit = () => {
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-xl shadow-lg border border-gray-200">
-      {/* Header Section */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent">
           {id ? 'Edit Material' : 'Add New Material'}
@@ -83,7 +89,6 @@ const MaterialAddEdit = () => {
         </button>
       </div>
 
-      {/* Error Message */}
       {error && (
         <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r">
           <div className="flex items-center text-red-700">
@@ -95,10 +100,8 @@ const MaterialAddEdit = () => {
         </div>
       )}
 
-      {/* Form Section */}
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Item Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Item Name *</label>
             <input
@@ -112,7 +115,6 @@ const MaterialAddEdit = () => {
             />
           </div>
 
-          {/* Model */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
             <input
@@ -125,7 +127,6 @@ const MaterialAddEdit = () => {
             />
           </div>
 
-          {/* Quantity */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
             <input
@@ -140,12 +141,11 @@ const MaterialAddEdit = () => {
             />
           </div>
 
-          {/* Price */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Price *</label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                $
+                Rs.
               </span>
               <input
                 name="price"
@@ -154,14 +154,13 @@ const MaterialAddEdit = () => {
                 onChange={handleChange}
                 placeholder="0.00"
                 step="0.01"
-                className="w-full border border-gray-300 rounded-lg pl-8 pr-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 required
                 disabled={loading}
               />
             </div>
           </div>
 
-          {/* Notes */}
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
             <textarea
@@ -176,7 +175,6 @@ const MaterialAddEdit = () => {
           </div>
         </div>
 
-        {/* Submit Button */}
         <div className="pt-4">
           <button
             type="submit"

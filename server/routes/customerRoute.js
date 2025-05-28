@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const Customer = require('../models/Customer');
+const verifyToken = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
@@ -24,8 +25,8 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// Create new customer with image
-router.post('/', upload.single('photo'), async (req, res) => {
+// Create new customer (protected)
+router.post('/', verifyToken, upload.single('photo'), async (req, res) => {
   try {
     const newCustomer = new Customer({
       ...req.body,
@@ -38,12 +39,10 @@ router.post('/', upload.single('photo'), async (req, res) => {
   }
 });
 
-// Update existing customer
-router.put('/:id', upload.single('photo'), async (req, res) => {
+// Update customer (protected)
+router.put('/:id', verifyToken, upload.single('photo'), async (req, res) => {
   try {
-    const updateData = {
-      ...req.body,
-    };
+    const updateData = { ...req.body };
     if (req.file) {
       updateData.photo = `/uploads/customer-photos/${req.file.filename}`;
     }
@@ -54,7 +53,7 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
   }
 });
 
-// Get all customers
+// Get all customers (public)
 router.get('/', async (req, res) => {
   try {
     const customers = await Customer.find();
@@ -64,7 +63,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get customer by ID
+// Get one customer (public)
 router.get('/:id', async (req, res) => {
   try {
     const customer = await Customer.findById(req.params.id);
@@ -74,8 +73,8 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Delete customer
-router.delete('/:id', async (req, res) => {
+// Delete customer (protected)
+router.delete('/:id', verifyToken, async (req, res) => {
   try {
     await Customer.findByIdAndDelete(req.params.id);
     res.json({ message: 'Customer deleted' });

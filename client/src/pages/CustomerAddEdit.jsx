@@ -20,7 +20,11 @@ const CustomerAddEdit = () => {
   useEffect(() => {
     if (id) {
       setLoading(true);
-      fetch(`/api/customers/${id}`)
+      fetch(`/api/customers/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      })
         .then(res => res.json())
         .then(data => setFormData({ ...data, date: data.date?.split('T')[0], photo: null }))
         .catch(err => setError(err.message))
@@ -58,6 +62,9 @@ const CustomerAddEdit = () => {
 
       const res = await fetch(id ? `/api/customers/${id}` : '/api/customers', {
         method: id ? 'PUT' : 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         body: form,
       });
 
@@ -77,7 +84,6 @@ const CustomerAddEdit = () => {
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-xl shadow-lg border border-gray-200">
-      {/* Header Section */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent">
           {id ? 'Edit Customer' : 'Add New Customer'}
@@ -91,7 +97,6 @@ const CustomerAddEdit = () => {
         </button>
       </div>
 
-      {/* Error Message */}
       {error && (
         <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r">
           <div className="flex items-center text-red-700">
@@ -103,10 +108,8 @@ const CustomerAddEdit = () => {
         </div>
       )}
 
-      {/* Form Section */}
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
             <input
@@ -120,7 +123,6 @@ const CustomerAddEdit = () => {
             />
           </div>
 
-          {/* Mobile */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Mobile *</label>
             <input
@@ -134,7 +136,6 @@ const CustomerAddEdit = () => {
             />
           </div>
 
-          {/* NIC/License */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">NIC/License *</label>
             <input
@@ -148,7 +149,6 @@ const CustomerAddEdit = () => {
             />
           </div>
 
-          {/* Address */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
             <input
@@ -161,7 +161,6 @@ const CustomerAddEdit = () => {
             />
           </div>
 
-          {/* Date */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
             <input
@@ -174,7 +173,6 @@ const CustomerAddEdit = () => {
             />
           </div>
 
-          {/* Photo */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Photo</label>
             <div className="flex items-center gap-4">
@@ -200,7 +198,6 @@ const CustomerAddEdit = () => {
           </div>
         </div>
 
-        {/* Submit Button */}
         <div className="pt-4">
           <button
             type="submit"

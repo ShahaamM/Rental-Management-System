@@ -17,20 +17,28 @@ const Reports = () => {
   };
 
   const fetchReports = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const params = new URLSearchParams(filters);
-      const res = await fetch(`/api/reports?${params.toString()}`);
-      if (!res.ok) throw new Error('Failed to fetch report data');
-      const data = await res.json();
-      setResults(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  setLoading(true);
+  setError('');
+  try {
+    const token = localStorage.getItem('token');
+    const params = new URLSearchParams(filters);
+
+    const res = await fetch(`/api/reports?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) throw new Error('Failed to fetch report data');
+    const data = await res.json();
+    setResults(data);
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleExport = () => {
     // Export functionality would go here

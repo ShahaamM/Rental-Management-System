@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Edit, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const CustomerList = () => {
   const [customers, setCustomers] = useState([]);
@@ -12,7 +13,14 @@ const CustomerList = () => {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/customers');
+      const token = localStorage.getItem('token');
+
+      const res = await fetch('/api/customers', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
       if (!res.ok) throw new Error('Failed to fetch customers');
       const data = await res.json();
       setCustomers(data);
@@ -26,7 +34,15 @@ const CustomerList = () => {
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this customer?')) return;
     try {
-      const res = await fetch(`/api/customers/${id}`, { method: 'DELETE' });
+      const token = localStorage.getItem('token');
+
+      const res = await fetch(`/api/customers/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
       if (!res.ok) throw new Error('Failed to delete customer');
       fetchCustomers();
     } catch (err) {

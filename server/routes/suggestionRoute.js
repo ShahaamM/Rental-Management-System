@@ -1,29 +1,32 @@
+// routes/suggestions.js
 const express = require('express');
-const Customer = require('../models/Customer');
-const Material = require('../models/Material');
 const router = express.Router();
+const Material = require('../models/Material');
+const Customer = require('../models/Customer');
+const verifyToken = require('../middleware/authMiddleware');
 
-router.get('/', async (req, res) => {
+// GET /api/suggestions?field=customerName&query=abc
+router.get('/', verifyToken, async (req, res) => {
   const { field, query } = req.query;
-
-  if (!field || !query) {
-    return res.status(400).json({ message: 'Missing field or query' });
-  }
-
   try {
-    let results = [];
-
     if (field === 'customerName') {
-      results = await Customer.find({ name: { $regex: query, $options: 'i' } }).limit(10).distinct('name');
-    } else if (field === 'itemName') {
-      results = await Material.find({ itemName: { $regex: query, $options: 'i' } }).limit(10).distinct('itemName');
-    } else if (field === 'model') {
-      results = await Material.find({ model: { $regex: query, $options: 'i' } }).limit(10).distinct('model');
+      const results = await Customer.find({ name: { $regex: query, $options: 'i' } }).limit(10);
+      return res.json(results.map(c => c.name));
     }
 
-    res.json(results);
+    if (field === 'itemName') {
+      const results = await Material.find({ itemName: { $regex: query, $options: 'i' } }).limit(10);
+      return res.json([...new Set(results.map(m => m.itemName))]);
+    }
+
+    if (field === 'model') {
+      const results = await Material.find({ model: { $regex: query, $options: 'i' } }).limit(10);
+      return res.json([...new Set(results.map(m => m.model))]);
+    }
+
+    res.status(400).json({ message: 'Invalid field' });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch suggestions', error: err.message });
+    res.status(500).json({ message: 'Server error' });
   }
 });
 

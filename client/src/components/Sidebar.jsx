@@ -1,6 +1,6 @@
 // src/components/Sidebar.jsx
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Users,
   Package,
@@ -14,6 +14,7 @@ import {
 
 const Sidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const current = location.pathname;
   const [collapsed, setCollapsed] = useState(false);
 
@@ -27,7 +28,7 @@ const Sidebar = () => {
 
   const handleLogout = () => {
     localStorage.clear();
-    window.location.href = '/login';
+    navigate('/login');
   };
 
   const navItems = [
@@ -79,12 +80,9 @@ const Sidebar = () => {
     >
       {/* Top Section */}
       <div>
-        {/* Header */}
         <header className="flex items-center justify-between px-4 py-5 bg-gradient-to-r from-purple-600 to-pink-500 text-white">
           {!collapsed && (
-            <h1 className="text-lg font-bold tracking-wide">
-              Rental Pro
-            </h1>
+            <h1 className="text-lg font-bold tracking-wide">Rental Pro</h1>
           )}
           <button 
             onClick={() => setCollapsed(!collapsed)} 
@@ -107,7 +105,6 @@ const Sidebar = () => {
                   {section}
                 </p>
               )}
-              
               {navItems
                 .filter(item => item.section === section)
                 .map((item) => (

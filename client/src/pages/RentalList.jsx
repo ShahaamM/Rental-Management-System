@@ -10,29 +10,46 @@ const RentalList = () => {
   const navigate = useNavigate();
 
   const fetchRentals = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch('/api/rentals');
-      if (!res.ok) throw new Error('Failed to fetch rentals');
-      const data = await res.json();
-      setRentals(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+    const token = localStorage.getItem('token');
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this rental record?')) return;
-    try {
-      const res = await fetch(`/api/rentals/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete rental');
-      fetchRentals();
-    } catch (err) {
-      alert(err.message);
-    }
-  };
+    const res = await fetch('/api/rentals', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) throw new Error('Failed to fetch rentals');
+    const data = await res.json();
+    setRentals(data);
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleDelete = async (id) => {
+  if (!window.confirm('Are you sure you want to delete this rental record?')) return;
+
+  try {
+    const token = localStorage.getItem('token');
+
+    const res = await fetch(`/api/rentals/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) throw new Error('Failed to delete rental');
+    fetchRentals();
+  } catch (err) {
+    alert(err.message);
+  }
+};
+
 
   useEffect(() => {
     fetchRentals();

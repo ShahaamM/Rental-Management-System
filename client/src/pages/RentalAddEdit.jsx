@@ -1,147 +1,96 @@
 // src/pages/RentalAddEdit.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Save, X } from 'lucide-react';
+import { ArrowLeft, Save, Plus } from 'lucide-react';
 
 const RentalAddEdit = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const isEditMode = Boolean(id);
+
   const [formData, setFormData] = useState({
     customerName: '',
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0],
+    startDate: '',
+    endDate: '',
     items: [{ itemName: '', model: '', quantity: '', price: '', total: '' }]
   });
-  const [grandTotal, setGrandTotal] = useState(0);
-  const [daysRented, setDaysRented] = useState(1);
-  const [suggestions, setSuggestions] = useState({
-    customer: [],
-    item: [],
-    model: []
-  });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [suggestions, setSuggestions] = useState({});
 
-  useEffect(() => {
-    if (id) {
-      setLoading(true);
-      fetch(`/api/rentals/${id}`)
-        .then(res => res.json())
-        .then(data => {
-          setFormData({
-            ...data,
-            startDate: data.startDate?.split('T')[0],
-            endDate: data.endDate?.split('T')[0]
-          });
-        })
-        .catch(err => setError(err.message))
-        .finally(() => setLoading(false));
-    }
-  }, [id]);
+  const fetchSuggestions = async (field, query) => {
+  if (query.length < 1) return;
 
-  useEffect(() => {
-    const totalPerDay = formData.items.reduce((sum, item) => {
-      return sum + (parseFloat(item.total) || 0);
-    }, 0);
+  try {
+    const token = localStorage.getItem('token'); // ✅ Make sure token exists
 
-    const start = new Date(formData.startDate);
-    const end = new Date(formData.endDate);
-    const days = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+    const res = await fetch(`/api/suggestions?field=${field}&query=${query}`, {
+      headers: {
+        'Authorization': `Bearer ${token}` // ✅ Add token in request
+      }
+    });
 
-    setDaysRented(days);
-    setGrandTotal(parseFloat((totalPerDay * days).toFixed(2)));
-  }, [formData.items, formData.startDate, formData.endDate]);
+    if (!res.ok) throw new Error('Unauthorized');
 
-  const fetchSuggestions = async (type, value) => {
-    if (value.length < 2) {
-      setSuggestions(prev => ({ ...prev, [type]: [] }));
-      return;
-    }
-    try {
-      const res = await fetch(`/api/suggestions?field=${type}&query=${value}`);
-      const data = await res.json();
-      setSuggestions(prev => ({ ...prev, [type]: data }));
-    } catch {
-      console.error('Suggestion fetch failed');
-    }
-  };
+    const data = await res.json();
+    setSuggestions(prev => ({ ...prev, [field]: data }));
+  } catch (err) {
+    console.error('Suggestion fetch failed:', err.message);
+  }
+};
 
-  const handleChange = (e) => {
+
+  const handleChange = async (e, index = null, field = null) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (name === 'customerName') fetchSuggestions('customer', value);
-  };
+    if (index !== null && field) {
+      const updatedItems = [...formData.items];
+      updatedItems[index][field] = value;
+      fetchSuggestions(field, value, index);
 
-  const handleItemChange = (index, field, value) => {
-    const newItems = [...formData.items];
-    newItems[index][field] = value;
+      const { itemName, model } = updatedItems[index];
+      if (itemName && model && (field === 'itemName' || field === 'model')) {
+        try {
+          const res = await fetch(`/api/rentals/price?itemName=${encodeURIComponent(itemName)}&model=${encodeURIComponent(model)}`);
+          const data = await res.json();
+          updatedItems[index].price = data.price || '';
+        } catch {
+          updatedItems[index].price = '';
+        }
+      }
 
-    if (['quantity', 'price'].includes(field)) {
-      const qty = parseFloat(newItems[index].quantity) || 0;
-      const price = parseFloat(newItems[index].price) || 0;
-      newItems[index].total = qty && price ? (qty * price).toFixed(2) : '';
+      const qty = parseFloat(updatedItems[index].quantity || 0);
+      const price = parseFloat(updatedItems[index].price || 0);
+      updatedItems[index].total = (qty * price).toFixed(2);
+
+      setFormData({ ...formData, items: updatedItems });
+    } else {
+      setFormData({ ...formData, [name]: value });
+      fetchSuggestions(name, value, 0);
     }
-
-    if (field === 'itemName') fetchSuggestions('item', value);
-    if (field === 'model') fetchSuggestions('model', value);
-
-    setFormData(prev => ({ ...prev, items: newItems }));
   };
 
-  const handleAddItem = () => {
-    setFormData(prev => ({
-      ...prev,
-      items: [...prev.items, { itemName: '', model: '', quantity: '', price: '', total: '' }]
-    }));
-  };
-
-  const handleRemoveItem = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      items: prev.items.filter((_, i) => i !== index)
-    }));
+  const addItemRow = () => {
+    setFormData({
+      ...formData,
+      items: [...formData.items, { itemName: '', model: '', quantity: '', price: '', total: '' }]
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
-
-    if (
-      !formData.customerName ||
-      formData.items.length === 0 ||
-      formData.items.some(i =>
-        !i.itemName || !i.quantity || isNaN(i.quantity) || !i.price || isNaN(i.price)
-      )
-    ) {
-      setError('Please complete all required fields correctly.');
-      setLoading(false);
-      return;
-    }
-
+    const token = localStorage.getItem('token');
     try {
-      const payload = {
-        customerName: formData.customerName,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
-        items: formData.items
-      };
-
-      const method = id ? 'PUT' : 'POST';
-      const url = id ? `/api/rentals/${id}` : '/api/rentals';
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+      const res = await fetch(isEditMode ? `/api/rentals/${id}` : '/api/rentals', {
+        method: isEditMode ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(formData)
       });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Failed to save rental');
-      }
-
-      alert(id ? 'Rental updated successfully!' : 'Rental added successfully!');
+      if (!res.ok) throw new Error('Failed to save rental');
       navigate('/rentals');
     } catch (err) {
       setError(err.message);
@@ -150,143 +99,108 @@ const RentalAddEdit = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="max-w-5xl mx-auto p-6">
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
-        </div>
-      </div>
-    );
-  }
+  const fetchRental = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/rentals/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setFormData(data);
+    } catch (err) {
+      setError('Failed to load rental');
+    }
+  };
+
+  useEffect(() => {
+    if (isEditMode) fetchRental();
+  }, [id]);
 
   return (
-    <div className="max-w-5xl mx-auto p-6 bg-white rounded-xl shadow-lg border border-gray-200">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent">
-          {id ? 'Edit Rental' : 'Create New Rental'}
-        </h2>
-        <button
-          onClick={() => navigate('/rentals')}
-          className="text-gray-600 hover:text-gray-800 bg-gray-50 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-2"
-        >
-          <ArrowLeft size={18} />
-          Back to List
-        </button>
-      </div>
+    <div className="p-6 max-w-4xl mx-auto">
+      <button onClick={() => navigate('/rentals')} className="mb-4 flex items-center gap-2 text-sm text-blue-600 hover:underline">
+        <ArrowLeft size={16} /> Back to Rentals
+      </button>
+      <h2 className="text-2xl font-bold mb-4">{isEditMode ? 'Edit Rental' : 'Add Rental'}</h2>
+      {error && <p className="text-red-500 mb-2">{error}</p>}
 
-      {/* Error */}
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r text-red-700">
-          {error}
+      <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded-lg shadow-md border">
+        <div className="relative">
+          <label className="block text-sm font-medium text-gray-700">Customer Name</label>
+          <input type="text" name="customerName" value={formData.customerName} onChange={handleChange} required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+          {suggestions[`customerName_0`]?.length > 0 && (
+            <ul className="absolute z-10 w-full bg-white border rounded shadow">
+              {suggestions[`customerName_0`].map((s, i) => (
+                <li key={i} onClick={() => {
+                  setFormData(prev => ({ ...prev, customerName: s }));
+                  setSuggestions(prev => ({ ...prev, customerName_0: [] }));
+                }} className="px-2 py-1 hover:bg-blue-100 cursor-pointer">
+                  {s}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-      )}
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Customer Name */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Start Date</label>
+            <input type="date" name="startDate" value={formData.startDate?.split('T')[0]} onChange={handleChange} required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">End Date</label>
+            <input type="date" name="endDate" value={formData.endDate?.split('T')[0]} onChange={handleChange} required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+          </div>
+        </div>
+
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name *</label>
-          <div className="relative">
-            <input
-              name="customerName"
-              value={formData.customerName}
-              onChange={handleChange}
-              placeholder="Enter customer name"
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              required
-              disabled={loading}
-            />
-            {suggestions.customer.length > 0 && (
-              <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
-                {suggestions.customer.map((s, i) => (
-                  <li 
-                    key={i} 
-                    onClick={() => {
-                      setFormData(prev => ({ ...prev, customerName: s }));
-                      setSuggestions(prev => ({ ...prev, customer: [] }));
-                    }}
-                    className="p-2 hover:bg-purple-50 cursor-pointer"
-                  >
-                    {s}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-
-        {/* Dates */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Start Date *</label>
-            <input
-              type="date"
-              name="startDate"
-              value={formData.startDate}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              required
-              disabled={loading}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">End Date *</label>
-            <input
-              type="date"
-              name="endDate"
-              value={formData.endDate}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              required
-              disabled={loading}
-            />
-          </div>
-        </div>
-
-        {/* Items */}
-        {formData.items.map((item, idx) => (
-          <div key={idx} className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
-            <input value={item.itemName} onChange={e => handleItemChange(idx, 'itemName', e.target.value)} placeholder="Item Name" className="md:col-span-2 border px-3 py-2 rounded-lg text-sm" required />
-            <input value={item.model} onChange={e => handleItemChange(idx, 'model', e.target.value)} placeholder="Model" className="border px-3 py-2 rounded-lg text-sm" />
-            <input type="number" min="1" value={item.quantity} onChange={e => handleItemChange(idx, 'quantity', e.target.value)} placeholder="Qty" className="border px-3 py-2 rounded-lg text-sm" required />
-            <input type="number" min="0" value={item.price} onChange={e => handleItemChange(idx, 'price', e.target.value)} placeholder="Price" className="border px-3 py-2 rounded-lg text-sm" required />
-            <div className="flex items-center gap-2">
-              <div className="flex-1 border px-3 py-2 rounded-lg text-sm bg-gray-100">Rs. {item.total || '0.00'}</div>
-              {formData.items.length > 1 && (
-                <button type="button" onClick={() => handleRemoveItem(idx)} className="text-red-600 hover:text-red-800 p-1.5 rounded-md hover:bg-red-100 transition-colors">
-                  <X size={16} />
-                </button>
-              )}
+          <h3 className="font-semibold text-gray-800 mb-2">Items</h3>
+          {formData.items.map((item, index) => (
+            <div key={index} className="grid grid-cols-5 gap-2 mb-2 relative">
+              <div className="relative">
+                <input type="text" placeholder="Item Name" value={item.itemName} onChange={(e) => handleChange(e, index, 'itemName')} className="border rounded px-2 py-1 w-full" />
+                {suggestions[`itemName_${index}`]?.length > 0 && (
+                  <ul className="absolute z-10 bg-white border w-full max-h-40 overflow-y-auto shadow rounded text-sm">
+                    {suggestions[`itemName_${index}`].map((s, i) => (
+                      <li key={i} onClick={() => {
+                        const updated = [...formData.items];
+                        updated[index].itemName = s;
+                        setFormData({ ...formData, items: updated });
+                        setSuggestions(prev => ({ ...prev, [`itemName_${index}`]: [] }));
+                      }} className="px-2 py-1 hover:bg-blue-100 cursor-pointer">{s}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="relative">
+                <input type="text" placeholder="Model" value={item.model} onChange={(e) => handleChange(e, index, 'model')} className="border rounded px-2 py-1 w-full" />
+                {suggestions[`model_${index}`]?.length > 0 && (
+                  <ul className="absolute z-10 bg-white border w-full max-h-40 overflow-y-auto shadow rounded text-sm">
+                    {suggestions[`model_${index}`].map((s, i) => (
+                      <li key={i} onClick={() => {
+                        const updated = [...formData.items];
+                        updated[index].model = s;
+                        setFormData({ ...formData, items: updated });
+                        setSuggestions(prev => ({ ...prev, [`model_${index}`]: [] }));
+                      }} className="px-2 py-1 hover:bg-blue-100 cursor-pointer">{s}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <input type="number" placeholder="Qty" value={item.quantity} onChange={(e) => handleChange(e, index, 'quantity')} className="border rounded px-2 py-1" />
+              <input type="number" placeholder="Price" value={item.price} onChange={(e) => handleChange(e, index, 'price')} className="border rounded px-2 py-1" />
+              <input type="text" placeholder="Total" value={item.total} readOnly className="bg-gray-100 border rounded px-2 py-1" />
             </div>
-          </div>
-        ))}
+          ))}
 
-        <button type="button" onClick={handleAddItem} className="text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded-md hover:bg-blue-100 transition-colors flex items-center gap-1 text-sm" disabled={loading}>
-          <Plus size={16} />
-          Add Another Item
-        </button>
-
-        {/* Summary */}
-        <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <div className="text-sm text-gray-700">Number of Days: <strong>{daysRented}</strong></div>
-            </div>
-            <div className="text-lg font-bold text-purple-700 text-right">
-              Grand Total: Rs. {grandTotal.toFixed(2)}
-            </div>
-          </div>
-        </div>
-
-        {/* Submit */}
-        <div className="flex justify-end pt-4">
-          <button type="submit" className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-2.5 rounded-lg shadow-md hover:from-blue-600 hover:to-blue-700 transition-all duration-300 flex items-center gap-2" disabled={loading}>
-            <Save size={18} />
-            {id ? 'Update Rental' : 'Create Rental'}
+          <button type="button" onClick={addItemRow} className="mt-2 text-blue-600 flex items-center gap-1 text-sm hover:underline">
+            <Plus size={14} /> Add Item
           </button>
         </div>
+
+        <button type="submit" disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 flex items-center gap-2">
+          <Save size={16} /> {isEditMode ? 'Update Rental' : 'Save Rental'}
+        </button>
       </form>
     </div>
   );

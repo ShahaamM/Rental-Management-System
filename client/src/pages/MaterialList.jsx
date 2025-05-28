@@ -9,30 +9,47 @@ const MaterialList = () => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  const fetchMaterials = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch('/api/materials');
-      if (!res.ok) throw new Error('Failed to fetch materials');
-      const data = await res.json();
-      setMaterials(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+const fetchMaterials = async () => {
+  try {
+    setLoading(true);
+    const token = localStorage.getItem('token');
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this material?')) return;
-    try {
-      const res = await fetch(`/api/materials/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete material');
-      fetchMaterials();
-    } catch (err) {
-      alert(err.message);
-    }
-  };
+    const res = await fetch('/api/materials', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) throw new Error('Failed to fetch materials');
+    const data = await res.json();
+    setMaterials(data);
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleDelete = async (id) => {
+  if (!window.confirm('Are you sure you want to delete this material?')) return;
+
+  try {
+    const token = localStorage.getItem('token');
+
+    const res = await fetch(`/api/materials/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) throw new Error('Failed to delete material');
+    fetchMaterials();
+  } catch (err) {
+    alert(err.message);
+  }
+};
+
 
   useEffect(() => {
     fetchMaterials();
