@@ -1,3 +1,5 @@
+// backend/routes/authRoute.js
+
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -13,7 +15,7 @@ router.post('/register', async (req, res) => {
     const existing = await User.findOne({ username });
     if (existing) return res.status(400).json({ message: 'User already exists' });
 
-    const user = new User({ username, password }); // auto hashed
+    const user = new User({ username, password }); // auto hashed by schema
     await user.save();
 
     res.status(201).json({ message: 'Registered successfully' });
@@ -49,7 +51,7 @@ router.post('/login', async (req, res) => {
 router.put('/update-profile', async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ message: 'No token' });
+    if (!token) return res.status(401).json({ message: 'No token provided' });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id);
@@ -58,12 +60,20 @@ router.put('/update-profile', async (req, res) => {
     const match = await bcrypt.compare(req.body.currentPassword, user.password);
     if (!match) return res.status(401).json({ message: 'Incorrect current password' });
 
-    if (req.body.newUsername) user.username = req.body.newUsername;
-    if (req.body.newPassword) user.password = req.body.newPassword; // hashed by schema hook
+    // Update username
+    if (req.body.newUsername) {
+      user.username = req.body.newUsername;
+    }
+
+    // Update and hash new password manually
+    if (req.body.newPassword) {
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(req.body.newPassword, salt);
+    }
 
     await user.save();
-
     res.json({ message: 'Profile updated successfully. Please log in again.' });
+
   } catch (err) {
     res.status(500).json({ message: 'Update failed', error: err.message });
   }
