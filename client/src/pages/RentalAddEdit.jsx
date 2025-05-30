@@ -74,6 +74,12 @@ const RentalAddEdit = () => {
     });
   };
 
+  const removeItemRow = (index) => {
+    const updated = [...formData.items];
+    updated.splice(index, 1);
+    setFormData({ ...formData, items: updated });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -122,7 +128,7 @@ const RentalAddEdit = () => {
       {error && <p className="text-red-500 mb-2">{error}</p>}
 
       <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded-lg shadow-md border">
-        {/* Customer name */}
+        {/* Customer Fields */}
         <div className="relative">
           <label className="block text-sm font-medium text-gray-700">Customer Name</label>
           <input
@@ -152,7 +158,6 @@ const RentalAddEdit = () => {
           )}
         </div>
 
-        {/* Mobile & NIC */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Mobile</label>
@@ -178,7 +183,7 @@ const RentalAddEdit = () => {
           </div>
         </div>
 
-        {/* Dates */}
+        {/* Date Fields */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Start Date</label>
@@ -190,11 +195,12 @@ const RentalAddEdit = () => {
           </div>
         </div>
 
-        {/* Items list with suggestion */}
+        {/* Items Section */}
         <div>
           <h3 className="font-semibold text-gray-800 mb-2">Items</h3>
           {formData.items.map((item, index) => (
-            <div key={index} className="grid grid-cols-5 gap-2 mb-2 relative">
+            <div key={index} className="grid grid-cols-6 gap-2 mb-2 relative">
+              {/* Item Name */}
               <div className="relative">
                 <input type="text" placeholder="Item Name" value={item.itemName} onChange={(e) => handleChange(e, index, 'itemName')} className="border rounded px-2 py-1 w-full" />
                 {suggestions[`itemName_${index}`]?.length > 0 && (
@@ -210,6 +216,8 @@ const RentalAddEdit = () => {
                   </ul>
                 )}
               </div>
+
+              {/* Model */}
               <div className="relative">
                 <input type="text" placeholder="Model" value={item.model} onChange={(e) => handleChange(e, index, 'model')} className="border rounded px-2 py-1 w-full" />
                 {suggestions[`model_${index}`]?.length > 0 && (
@@ -225,11 +233,19 @@ const RentalAddEdit = () => {
                   </ul>
                 )}
               </div>
+
+              {/* Quantity, Price, Total */}
               <input type="number" placeholder="Qty" value={item.quantity} onChange={(e) => handleChange(e, index, 'quantity')} className="border rounded px-2 py-1" />
               <input type="number" placeholder="Price" value={item.price} onChange={(e) => handleChange(e, index, 'price')} className="border rounded px-2 py-1" />
               <input type="text" placeholder="Total" value={item.total} readOnly className="bg-gray-100 border rounded px-2 py-1" />
+
+              {/* Remove Button */}
+              <button type="button" onClick={() => removeItemRow(index)} className="text-red-500 text-xs hover:underline mt-2">
+                Remove
+              </button>
             </div>
           ))}
+
           <button type="button" onClick={addItemRow} className="mt-2 text-blue-600 flex items-center gap-1 text-sm hover:underline">
             <Plus size={14} /> Add Item
           </button>
