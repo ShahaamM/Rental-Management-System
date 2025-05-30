@@ -1,3 +1,4 @@
+// routes/suggestionRoutes.js
 const express = require('express');
 const router = express.Router();
 const Fuse = require('fuse.js');

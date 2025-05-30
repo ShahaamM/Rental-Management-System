@@ -1,5 +1,5 @@
 // src/pages/Reports.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart2, Filter, Download } from 'lucide-react';
 
 const Reports = () => {
@@ -11,9 +11,40 @@ const Reports = () => {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const handleChange = (e) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFilters({ ...filters, [name]: value });
+
+    if (name === 'customerName' && value.length > 1) {
+      fetchSuggestions(value);
+    }
+  };
+
+  const fetchSuggestions = async (query) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/suggestions?field=customerName&query=${query}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setSuggestions(data);
+      setShowSuggestions(true);
+    } catch (err) {
+      console.error('Suggestion fetch error:', err);
+    }
+  };
+
+  const handleSelectSuggestion = (suggestion) => {
+    setFilters({
+      ...filters,
+      customerName: suggestion.name,
+      nicOrLicense: suggestion.nicOrLicense,
+      mobile: suggestion.mobile
+    });
+    setShowSuggestions(false);
   };
 
   const fetchReports = async () => {
@@ -88,9 +119,31 @@ const Reports = () => {
           <Filter size={18} className="text-purple-600" />
           <h3 className="font-medium text-purple-800">Filter Options</h3>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <input name="customerName" value={filters.customerName} onChange={handleChange} placeholder="Customer Name"
-            className="border px-4 py-2 rounded-lg text-sm border-gray-300 focus:ring-2 focus:ring-purple-500" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative">
+          <div className="relative">
+            <input
+              name="customerName"
+              value={filters.customerName}
+              onChange={handleChange}
+              placeholder="Customer Name"
+              className="border px-4 py-2 rounded-lg text-sm border-gray-300 focus:ring-2 focus:ring-purple-500 w-full"
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 100)}
+            />
+            {showSuggestions && suggestions.length > 0 && (
+              <ul className="absolute z-10 bg-white border border-gray-200 rounded w-full mt-1 shadow">
+                {suggestions.map((s, i) => (
+                  <li
+                    key={i}
+                    onClick={() => handleSelectSuggestion(s)}
+                    className="px-4 py-2 hover:bg-purple-100 cursor-pointer text-sm"
+                  >
+                    {s.name} - {s.mobile}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <input type="date" name="date" value={filters.date} onChange={handleChange}
             className="border px-4 py-2 rounded-lg text-sm border-gray-300 focus:ring-2 focus:ring-purple-500" />
           <select name="type" value={filters.type} onChange={handleChange}
