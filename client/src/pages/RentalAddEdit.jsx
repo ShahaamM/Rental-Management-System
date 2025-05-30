@@ -9,6 +9,8 @@ const RentalAddEdit = () => {
 
   const [formData, setFormData] = useState({
     customerName: '',
+    mobile: '',
+    nicOrLicense: '',
     startDate: '',
     endDate: '',
     items: [{ itemName: '', model: '', quantity: '', price: '', total: '' }]
@@ -19,29 +21,22 @@ const RentalAddEdit = () => {
   const [suggestions, setSuggestions] = useState({});
 
   const fetchSuggestions = async (field, query, index = 0) => {
-  if (query.length < 1) return;
-
-  try {
-    const token = localStorage.getItem('token');
-    const res = await fetch(`/api/suggestions?field=${field}&query=${query}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-
-    if (!res.ok) throw new Error('Unauthorized');
-    const data = await res.json();
-
-    setSuggestions(prev => ({
-      ...prev,
-      [`${field}_${index}`]: data   // ✅ store suggestion using field + index key
-    }));
-  } catch (err) {
-    console.error('Suggestion fetch failed:', err.message);
-  }
-};
-
-
+    if (query.length < 1) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/suggestions?field=${field}&query=${query}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Unauthorized');
+      const data = await res.json();
+      setSuggestions(prev => ({
+        ...prev,
+        [`${field}_${index}`]: data
+      }));
+    } catch (err) {
+      console.error('Suggestion fetch failed:', err.message);
+    }
+  };
 
   const handleChange = async (e, index = null, field = null) => {
     const { name, value } = e.target;
@@ -127,23 +122,63 @@ const RentalAddEdit = () => {
       {error && <p className="text-red-500 mb-2">{error}</p>}
 
       <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded-lg shadow-md border">
+        {/* Customer name */}
         <div className="relative">
           <label className="block text-sm font-medium text-gray-700">Customer Name</label>
-          <input type="text" name="customerName" value={formData.customerName} onChange={handleChange} required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+          <input
+            type="text"
+            name="customerName"
+            value={formData.customerName}
+            onChange={handleChange}
+            required
+            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+          />
           {suggestions.customerName_0?.length > 0 && (
-            <ul className="absolute z-10 w-full bg-white border rounded shadow">
-              {suggestions.customerName_0.map((s, i) => (
+            <ul className="absolute z-10 w-full bg-white border rounded shadow max-h-40 overflow-y-auto">
+              {suggestions.customerName_0.map((cust, i) => (
                 <li key={i} onClick={() => {
-                  setFormData(prev => ({ ...prev, customerName: s }));
+                  setFormData(prev => ({
+                    ...prev,
+                    customerName: cust.name,
+                    mobile: cust.mobile || '',
+                    nicOrLicense: cust.nicOrLicense || ''
+                  }));
                   setSuggestions(prev => ({ ...prev, customerName_0: [] }));
                 }} className="px-2 py-1 hover:bg-blue-100 cursor-pointer">
-                  {s}
+                  {cust.name}
                 </li>
               ))}
             </ul>
           )}
         </div>
 
+        {/* Mobile & NIC */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Mobile</label>
+            <input
+              type="text"
+              name="mobile"
+              value={formData.mobile}
+              onChange={handleChange}
+              className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+              placeholder="Auto-filled or enter manually"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">NIC / License</label>
+            <input
+              type="text"
+              name="nicOrLicense"
+              value={formData.nicOrLicense}
+              onChange={handleChange}
+              className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+              placeholder="Auto-filled or enter manually"
+            />
+          </div>
+        </div>
+
+        {/* Dates */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Start Date</label>
@@ -155,6 +190,7 @@ const RentalAddEdit = () => {
           </div>
         </div>
 
+        {/* Items list with suggestion */}
         <div>
           <h3 className="font-semibold text-gray-800 mb-2">Items</h3>
           {formData.items.map((item, index) => (
@@ -194,7 +230,6 @@ const RentalAddEdit = () => {
               <input type="text" placeholder="Total" value={item.total} readOnly className="bg-gray-100 border rounded px-2 py-1" />
             </div>
           ))}
-
           <button type="button" onClick={addItemRow} className="mt-2 text-blue-600 flex items-center gap-1 text-sm hover:underline">
             <Plus size={14} /> Add Item
           </button>
