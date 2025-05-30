@@ -11,11 +11,15 @@ const itemSchema = new mongoose.Schema({
 
 const rentalSchema = new mongoose.Schema({
   customerName: String,
-  nicOrLicense: String,  // ✅ Added NIC/License field
-  mobile: String,        // ✅ Added Mobile Number field
-  items: [itemSchema],
+  mobile: String,
+  nicOrLicense: String,
   startDate: Date,
   endDate: Date,
+  numberOfDays: Number,           // ➕ auto-calculated
+  grandTotal: Number,             // ➕ auto-calculated
+  amountPaid: Number,             // ➕ user input
+  remainingAmount: Number,        // ➕ auto-calculated
+  items: [itemSchema],
   createdAt: {
     type: Date,
     default: Date.now

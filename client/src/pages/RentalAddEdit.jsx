@@ -13,7 +13,11 @@ const RentalAddEdit = () => {
     nicOrLicense: '',
     startDate: '',
     endDate: '',
-    items: [{ itemName: '', model: '', quantity: '', price: '', total: '' }]
+    items: [{ itemName: '', model: '', quantity: '', price: '', total: '' }],
+    amountPaid: 0,
+    grandTotal: 0,
+    numberOfDays: 0,
+    remainingAmount: 0
   });
 
   const [loading, setLoading] = useState(false);
@@ -250,13 +254,49 @@ const RentalAddEdit = () => {
             <Plus size={14} /> Add Item
           </button>
         </div>
+      {/* End of Items Section */}
 
-        <button type="submit" disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 flex items-center gap-2">
-          <Save size={16} /> {isEditMode ? 'Update Rental' : 'Save Rental'}
-        </button>
-      </form>
-    </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Amount Paid</label>
+        <input
+          type="number"
+          name="amountPaid"
+          value={formData.amountPaid}
+          onChange={handleChange}
+          placeholder="Enter amount paid"
+          className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+        />
+      </div>
+
+      <div className="text-sm text-gray-600 mt-4 bg-gray-50 p-4 rounded border">
+        <p><strong>Number of Days:</strong> {calculateDays()}</p>
+        <p><strong>Grand Total:</strong> Rs. {calculateGrandTotal()}</p>
+        <p><strong>Amount Paid:</strong> Rs. {formData.amountPaid || 0}</p>
+        <p><strong>Remaining:</strong> Rs. {calculateRemaining()}</p>
+      </div>
+
+      <button type="submit" disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 flex items-center gap-2">
+        <Save size={16} /> {isEditMode ? 'Update Rental' : 'Save Rental'}
+      </button>
+    </form>
+  </div>
   );
+
+  // Utility functions moved outside of JSX
+  function calculateDays() {
+    const start = new Date(formData.startDate);
+    const end = new Date(formData.endDate);
+    const timeDiff = end - start;
+    return timeDiff >= 0 ? Math.floor(timeDiff / (1000 * 60 * 60 * 24)) + 1 : 0;
+  }
+
+  function calculateGrandTotal() {
+    return formData.items.reduce((sum, item) => sum + parseFloat(item.total || 0), 0).toFixed(2);
+  }
+
+  function calculateRemaining() {
+    return (calculateGrandTotal() - parseFloat(formData.amountPaid || 0)).toFixed(2);
+  }
 };
 
 export default RentalAddEdit;

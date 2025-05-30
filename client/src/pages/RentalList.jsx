@@ -10,46 +10,45 @@ const RentalList = () => {
   const navigate = useNavigate();
 
   const fetchRentals = async () => {
-  try {
-    setLoading(true);
-    const token = localStorage.getItem('token');
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
 
-    const res = await fetch('/api/rentals', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+      const res = await fetch('/api/rentals', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    if (!res.ok) throw new Error('Failed to fetch rentals');
-    const data = await res.json();
-    setRentals(data);
-  } catch (err) {
-    setError(err.message);
-  } finally {
-    setLoading(false);
-  }
-};
+      if (!res.ok) throw new Error('Failed to fetch rentals');
+      const data = await res.json();
+      setRentals(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-const handleDelete = async (id) => {
-  if (!window.confirm('Are you sure you want to delete this rental record?')) return;
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this rental record?')) return;
 
-  try {
-    const token = localStorage.getItem('token');
+    try {
+      const token = localStorage.getItem('token');
 
-    const res = await fetch(`/api/rentals/${id}`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+      const res = await fetch(`/api/rentals/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    if (!res.ok) throw new Error('Failed to delete rental');
-    fetchRentals();
-  } catch (err) {
-    alert(err.message);
-  }
-};
-
+      if (!res.ok) throw new Error('Failed to delete rental');
+      fetchRentals();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
 
   useEffect(() => {
     fetchRentals();
@@ -84,7 +83,6 @@ const handleDelete = async (id) => {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      {/* Header Section */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent">
@@ -103,7 +101,6 @@ const handleDelete = async (id) => {
         </button>
       </div>
 
-      {/* Table Section */}
       <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -112,65 +109,77 @@ const handleDelete = async (id) => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">Customer</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">Period</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">Items</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">Financials</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {rentals.map((rental) => (
-                <tr key={rental._id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{rental.customerName}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-700">
-                      <div>{rental.startDate?.split('T')[0]}</div>
-                      <div className="text-xs text-gray-500">to</div>
-                      <div>{rental.endDate?.split('T')[0]}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-700 space-y-1">
-                      {rental.items.map((item, i) => (
-                        <div key={i} className="flex items-center">
-                          <span className="bg-gray-100 px-2 py-1 rounded text-xs mr-2">{item.quantity}x</span>
-                          <span>{item.itemName}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      new Date(rental.endDate) > new Date() 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {new Date(rental.endDate) > new Date() ? 'Active' : 'Completed'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => navigate(`/rental/edit/${rental._id}`)}
-                        className="text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1 rounded-md hover:bg-blue-100 transition-colors flex items-center gap-1"
-                      >
-                        <Edit size={16} />
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(rental._id)}
-                        className="text-red-600 hover:text-red-800 bg-red-50 px-3 py-1 rounded-md hover:bg-red-100 transition-colors flex items-center gap-1"
-                      >
-                        <Trash2 size={16} />
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {rentals.map((rental) => {
+                const grandTotal = rental.grandTotal ?? 0;
+                const amountPaid = rental.amountPaid ?? 0;
+                const remainingAmount = rental.remainingAmount ?? (grandTotal - amountPaid);
+                return (
+                  <tr key={rental._id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{rental.customerName}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-700">
+                        <div>{rental.startDate?.split('T')[0]}</div>
+                        <div className="text-xs text-gray-500">to</div>
+                        <div>{rental.endDate?.split('T')[0]}</div>
+                        <div className="text-xs text-gray-500 mt-1">{rental.numberOfDays || '-'} days</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-700 space-y-1">
+                        {rental.items.map((item, i) => (
+                          <div key={i} className="flex items-center">
+                            <span className="bg-gray-100 px-2 py-1 rounded text-xs mr-2">{item.quantity}x</span>
+                            <span>{item.itemName}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      <div>Total: Rs. {grandTotal.toFixed(2)}</div>
+                      <div>Paid: Rs. {amountPaid.toFixed(2)}</div>
+                      <div>Due: Rs. {remainingAmount.toFixed(2)}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        new Date(rental.endDate) > new Date() 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {new Date(rental.endDate) > new Date() ? 'Active' : 'Completed'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => navigate(`/rental/edit/${rental._id}`)}
+                          className="text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1 rounded-md hover:bg-blue-100 transition-colors flex items-center gap-1"
+                        >
+                          <Edit size={16} />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(rental._id)}
+                          className="text-red-600 hover:text-red-800 bg-red-50 px-3 py-1 rounded-md hover:bg-red-100 transition-colors flex items-center gap-1"
+                        >
+                          <Trash2 size={16} />
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {rentals.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="px-6 py-12 text-center">
+                  <td colSpan="6" className="px-6 py-12 text-center">
                     <div className="text-gray-400 flex flex-col items-center">
                       <svg className="w-16 h-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>

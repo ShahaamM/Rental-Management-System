@@ -2,7 +2,20 @@
 const express = require('express');
 const router = express.Router();
 const Rental = require('../models/Rental');
+const Material = require('../models/Material'); // Needed for price lookup
 const verifyToken = require('../middleware/authMiddleware');
+
+// Helper functions
+const calculateDays = (startDate, endDate) => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const diff = end - start;
+  return diff >= 0 ? Math.floor(diff / (1000 * 60 * 60 * 24)) + 1 : 0;
+};
+
+const calculateGrandTotal = (items) => {
+  return items.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
+};
 
 // GET all rentals
 router.get('/', verifyToken, async (req, res) => {
@@ -28,7 +41,24 @@ router.get('/:id', verifyToken, async (req, res) => {
 // CREATE rental
 router.post('/', verifyToken, async (req, res) => {
   try {
-    const rental = new Rental(req.body);
+    const { customerName, mobile, nicOrLicense, startDate, endDate, items, amountPaid } = req.body;
+    const numberOfDays = calculateDays(startDate, endDate);
+    const grandTotal = calculateGrandTotal(items);
+    const remainingAmount = grandTotal - parseFloat(amountPaid || 0);
+
+    const rental = new Rental({
+      customerName,
+      mobile,
+      nicOrLicense,
+      startDate,
+      endDate,
+      items,
+      amountPaid,
+      numberOfDays,
+      grandTotal,
+      remainingAmount
+    });
+
     const saved = await rental.save();
     res.status(201).json(saved);
   } catch (err) {
@@ -39,7 +69,28 @@ router.post('/', verifyToken, async (req, res) => {
 // UPDATE rental
 router.put('/:id', verifyToken, async (req, res) => {
   try {
-    const updated = await Rental.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const { customerName, mobile, nicOrLicense, startDate, endDate, items, amountPaid } = req.body;
+    const numberOfDays = calculateDays(startDate, endDate);
+    const grandTotal = calculateGrandTotal(items);
+    const remainingAmount = grandTotal - parseFloat(amountPaid || 0);
+
+    const updated = await Rental.findByIdAndUpdate(
+      req.params.id,
+      {
+        customerName,
+        mobile,
+        nicOrLicense,
+        startDate,
+        endDate,
+        items,
+        amountPaid,
+        numberOfDays,
+        grandTotal,
+        remainingAmount
+      },
+      { new: true }
+    );
+
     if (!updated) return res.status(404).json({ message: 'Rental not found' });
     res.json(updated);
   } catch (err) {
@@ -58,7 +109,7 @@ router.delete('/:id', verifyToken, async (req, res) => {
   }
 });
 
-// routes/rentals.js (part of it for price lookup)
+// Price lookup
 router.get('/price', verifyToken, async (req, res) => {
   const { itemName, model } = req.query;
   try {
