@@ -37,10 +37,12 @@ const Reports = () => {
 
   const handleExport = () => {
     const csvContent = [
-      ['Customer', 'Item', 'Model', 'Qty', 'Price', 'Total', 'Start Date', 'End Date'],
+      ['Customer', 'NIC', 'Mobile', 'Item', 'Model', 'Qty', 'Price', 'Total', 'Start Date', 'End Date'],
       ...results.flatMap(entry =>
         entry.items.map(item => [
           entry.customerName,
+          entry.nicOrLicense,
+          entry.mobile,
           item.itemName,
           item.model,
           item.quantity,
@@ -115,7 +117,7 @@ const Reports = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-purple-100">
               <tr>
-                {['Customer', 'Item', 'Model', 'Qty', 'Price', 'Total', 'Period'].map(col => (
+                {['Customer', 'NIC', 'Mobile', 'Item', 'Model', 'Qty', 'Price', 'Total', 'Period'].map(col => (
                   <th key={col} className="px-6 py-3 text-left text-xs font-medium text-purple-800 uppercase">
                     {col}
                   </th>
@@ -127,6 +129,8 @@ const Reports = () => {
                 entry.items.map((item, j) => (
                   <tr key={`${i}-${j}`}>
                     <td className="px-6 py-4">{entry.customerName}</td>
+                    <td className="px-6 py-4">{entry.nicOrLicense}</td>
+                    <td className="px-6 py-4">{entry.mobile}</td>
                     <td className="px-6 py-4">{item.itemName}</td>
                     <td className="px-6 py-4">{item.model}</td>
                     <td className="px-6 py-4">{item.quantity}</td>

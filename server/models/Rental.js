@@ -11,6 +11,8 @@ const itemSchema = new mongoose.Schema({
 
 const rentalSchema = new mongoose.Schema({
   customerName: String,
+  nicOrLicense: String,  // ✅ Added NIC/License field
+  mobile: String,        // ✅ Added Mobile Number field
   items: [itemSchema],
   startDate: Date,
   endDate: Date,
