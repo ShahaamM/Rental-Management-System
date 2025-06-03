@@ -127,10 +127,10 @@ const handleDelete = async (id) => {
                     <div className="text-sm text-gray-700">{mat.model}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-700 font-mono bg-gray-50 px-2 py-1 rounded">
-                      {mat.quantity}
-                    </div>
-                  </td>
+                      <div className="text-sm text-gray-700 font-mono bg-gray-50 px-2 py-1 rounded">
+                      {mat.quantity ?? mat.stock}
+                      </div>
+                    </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-700">${mat.price}</div>
                   </td>

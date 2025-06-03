@@ -121,7 +121,7 @@ const CustomerList = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex-shrink-0 h-10 w-10">
                       <img
-                        src={cust.photo ? `http://localhost:5000${cust.photo}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(cust.name)}&background=random`}
+                        src={cust.photo ? `https://tnt.carte.one${cust.photo}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(cust.name)}&background=random`}
                         alt={cust.name}
                         className="h-10 w-10 rounded-full object-cover border-2 border-purple-100"
                         onError={(e) => {

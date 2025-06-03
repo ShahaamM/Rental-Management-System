@@ -59,13 +59,6 @@ const Sidebar = () => {
       label: 'Reports',
       iconBg: 'from-pink-400 to-pink-500',
       section: 'Analytics'
-    },
-    {
-      path: '/settings',
-      icon: <Settings size={18} />,
-      label: 'Settings',
-      iconBg: 'from-gray-400 to-gray-500',
-      section: 'Analytics'
     }
   ];
 

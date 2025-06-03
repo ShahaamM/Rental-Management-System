@@ -1,4 +1,3 @@
-// routes/suggestionRoutes.js
 const express = require('express');
 const router = express.Router();
 const Fuse = require('fuse.js');
@@ -45,6 +44,20 @@ router.get('/', verifyToken, async (req, res) => {
   } catch (err) {
     console.error('Suggestion error:', err);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ✅ NEW: GET price by itemName and model
+router.get('/price', verifyToken, async (req, res) => {
+  const { itemName, model } = req.query;
+
+  try {
+    const material = await Material.findOne({ itemName, model });
+    if (!material) return res.status(404).json({ price: '' });
+    res.json({ price: material.price });
+  } catch (err) {
+    console.error('Price lookup error:', err);
+    res.status(500).json({ message: 'Failed to fetch price' });
   }
 });
 

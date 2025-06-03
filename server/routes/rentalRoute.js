@@ -42,6 +42,17 @@ router.get('/:id', verifyToken, async (req, res) => {
 router.post('/', verifyToken, async (req, res) => {
   try {
     const { customerName, mobile, nicOrLicense, startDate, endDate, items, amountPaid } = req.body;
+    
+    // Auto-fill prices from Material if missing
+    const updatedItems = await Promise.all(items.map(async item => {
+      if (!item.price && item.itemName && item.model) {
+        const material = await Material.findOne({ itemName: item.itemName, model: item.model });
+        item.price = material?.price || 0;
+      }
+      item.total = (parseFloat(item.quantity || 0) * parseFloat(item.price || 0)).toFixed(2);
+      return item;
+    }));
+
     const numberOfDays = calculateDays(startDate, endDate);
     const grandTotal = calculateGrandTotal(items);
     const remainingAmount = grandTotal - parseFloat(amountPaid || 0);
@@ -52,7 +63,7 @@ router.post('/', verifyToken, async (req, res) => {
       nicOrLicense,
       startDate,
       endDate,
-      items,
+      items: updatedItems,
       amountPaid,
       numberOfDays,
       grandTotal,
@@ -70,6 +81,17 @@ router.post('/', verifyToken, async (req, res) => {
 router.put('/:id', verifyToken, async (req, res) => {
   try {
     const { customerName, mobile, nicOrLicense, startDate, endDate, items, amountPaid } = req.body;
+    
+    // Auto-fill prices from Material if missing
+    const updatedItems = await Promise.all(items.map(async item => {
+      if (!item.price && item.itemName && item.model) {
+        const material = await Material.findOne({ itemName: item.itemName, model: item.model });
+        item.price = material?.price || 0;
+      }
+      item.total = (parseFloat(item.quantity || 0) * parseFloat(item.price || 0)).toFixed(2);
+      return item;
+    }));
+    
     const numberOfDays = calculateDays(startDate, endDate);
     const grandTotal = calculateGrandTotal(items);
     const remainingAmount = grandTotal - parseFloat(amountPaid || 0);
@@ -82,7 +104,7 @@ router.put('/:id', verifyToken, async (req, res) => {
         nicOrLicense,
         startDate,
         endDate,
-        items,
+        items: updatedItems,
         amountPaid,
         numberOfDays,
         grandTotal,

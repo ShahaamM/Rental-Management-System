@@ -58,4 +58,37 @@ router.delete('/:id', verifyToken, async (req, res) => {
   }
 });
 
+
+// Update stock (reduce after rental)
+router.post('/update-stock', verifyToken, async (req, res) => {
+  const { itemName, model, quantity } = req.body;
+  try {
+    const material = await Material.findOne({ itemName, model });
+    if (!material) return res.status(404).json({ message: 'Material not found' });
+
+    material.quantity = Math.max(0, material.quantity - parseInt(quantity)); // avoid negative stock
+    await material.save();
+    res.status(200).json({ message: 'Stock updated' });
+  } catch (err) {
+    console.error('Error updating stock:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Restore stock (on edit/delete of rental)
+router.post('/restore-stock', verifyToken, async (req, res) => {
+  const { itemName, model, quantity } = req.body;
+  try {
+    const material = await Material.findOne({ itemName, model });
+    if (!material) return res.status(404).json({ message: 'Material not found' });
+
+    material.quantity += parseInt(quantity);
+    await material.save();
+    res.status(200).json({ message: 'Stock restored' });
+  } catch (err) {
+    console.error('Error restoring stock:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

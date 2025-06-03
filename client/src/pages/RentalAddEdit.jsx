@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, Plus } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash } from 'lucide-react';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const RentalAddEdit = () => {
   const { id } = useParams();
@@ -20,12 +22,13 @@ const RentalAddEdit = () => {
     remainingAmount: 0
   });
 
+  const [originalItems, setOriginalItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [suggestions, setSuggestions] = useState({});
 
   const fetchSuggestions = async (field, query, index = 0) => {
-    if (query.length < 1) return;
+    if (query.length < 1 || ['amountPaid', 'startDate', 'endDate'].includes(field)) return;
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`/api/suggestions?field=${field}&query=${query}`, {
@@ -33,13 +36,40 @@ const RentalAddEdit = () => {
       });
       if (!res.ok) throw new Error('Unauthorized');
       const data = await res.json();
-      setSuggestions(prev => ({
-        ...prev,
-        [`${field}_${index}`]: data
-      }));
+      setSuggestions(prev => ({ ...prev, [`${field}_${index}`]: data }));
+
+      if (field === 'customerName' && data.length > 0) {
+        const selected = data[0];
+        setFormData(prev => ({
+          ...prev,
+          mobile: selected.mobile || '',
+          nicOrLicense: selected.nicOrLicense || ''
+        }));
+      }
     } catch (err) {
       console.error('Suggestion fetch failed:', err.message);
     }
+  };
+
+  const fetchPrice = async (itemName, model) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/suggestions/price?itemName=${encodeURIComponent(itemName)}&model=${encodeURIComponent(model)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      return data.price || '';
+    } catch {
+      return '';
+    }
+  };
+
+  const calculateDays = (start, end) => {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return 0;
+    const diff = endDate.getTime() - startDate.getTime();
+    return diff >= 0 ? Math.floor(diff / (1000 * 60 * 60 * 24)) + 1 : 0;
   };
 
   const handleChange = async (e, index = null, field = null) => {
@@ -47,27 +77,45 @@ const RentalAddEdit = () => {
     if (index !== null && field) {
       const updatedItems = [...formData.items];
       updatedItems[index][field] = value;
-      fetchSuggestions(field, value, index);
+      await fetchSuggestions(field, value, index);
 
-      const { itemName, model } = updatedItems[index];
+      const { itemName, model, quantity } = updatedItems[index];
       if (itemName && model && (field === 'itemName' || field === 'model')) {
-        try {
-          const res = await fetch(`/api/rentals/price?itemName=${encodeURIComponent(itemName)}&model=${encodeURIComponent(model)}`);
-          const data = await res.json();
-          updatedItems[index].price = data.price || '';
-        } catch {
-          updatedItems[index].price = '';
-        }
+        const fetchedPrice = await fetchPrice(itemName, model);
+        updatedItems[index].price = fetchedPrice;
       }
 
       const qty = parseFloat(updatedItems[index].quantity || 0);
       const price = parseFloat(updatedItems[index].price || 0);
       updatedItems[index].total = (qty * price).toFixed(2);
 
-      setFormData({ ...formData, items: updatedItems });
+      const numberOfDays = calculateDays(formData.startDate, formData.endDate);
+      const baseTotal = updatedItems.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
+      const grandTotal = baseTotal * numberOfDays;
+      const remaining = grandTotal - parseFloat(formData.amountPaid || 0);
+
+      setFormData({
+        ...formData,
+        items: updatedItems,
+        grandTotal: grandTotal.toFixed(2),
+        remainingAmount: remaining.toFixed(2),
+        numberOfDays
+      });
     } else {
-      setFormData({ ...formData, [name]: value });
-      fetchSuggestions(name, value, 0);
+      const newForm = { ...formData, [name]: value };
+      const updatedStart = name === 'startDate' ? value : formData.startDate;
+      const updatedEnd = name === 'endDate' ? value : formData.endDate;
+      const numberOfDays = calculateDays(updatedStart, updatedEnd);
+      const baseTotal = formData.items.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
+      const grandTotal = baseTotal * numberOfDays;
+      const remaining = grandTotal - parseFloat(name === 'amountPaid' ? value : formData.amountPaid || 0);
+
+      newForm.numberOfDays = numberOfDays;
+      newForm.grandTotal = grandTotal.toFixed(2);
+      newForm.remainingAmount = remaining.toFixed(2);
+
+      setFormData(newForm);
+      await fetchSuggestions(name, value, 0);
     }
   };
 
@@ -81,7 +129,32 @@ const RentalAddEdit = () => {
   const removeItemRow = (index) => {
     const updated = [...formData.items];
     updated.splice(index, 1);
-    setFormData({ ...formData, items: updated });
+    const numberOfDays = calculateDays(formData.startDate, formData.endDate);
+    const baseTotal = updated.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
+    const grandTotal = baseTotal * numberOfDays;
+    const remaining = grandTotal - parseFloat(formData.amountPaid || 0);
+
+    setFormData({
+      ...formData,
+      items: updated,
+      grandTotal: grandTotal.toFixed(2),
+      remainingAmount: remaining.toFixed(2),
+      numberOfDays
+    });
+  };
+
+  const restoreStock = async (originalItems) => {
+    const token = localStorage.getItem('token');
+    await Promise.all(originalItems.map(async (item) => {
+      await fetch('/api/materials/restore-stock', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ itemName: item.itemName, model: item.model, quantity: item.quantity })
+      });
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -89,6 +162,10 @@ const RentalAddEdit = () => {
     setLoading(true);
     const token = localStorage.getItem('token');
     try {
+      if (isEditMode && originalItems.length > 0) {
+        await restoreStock(originalItems);
+      }
+
       const res = await fetch(isEditMode ? `/api/rentals/${id}` : '/api/rentals', {
         method: isEditMode ? 'PUT' : 'POST',
         headers: {
@@ -98,9 +175,23 @@ const RentalAddEdit = () => {
         body: JSON.stringify(formData)
       });
       if (!res.ok) throw new Error('Failed to save rental');
+
+      await Promise.all(formData.items.map(async (item) => {
+        await fetch('/api/materials/update-stock', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ itemName: item.itemName, model: item.model, quantity: item.quantity })
+        });
+      }));
+
+      toast.success(`Rental ${isEditMode ? 'updated' : 'created'} and stock updated.`);
       navigate('/rentals');
     } catch (err) {
       setError(err.message);
+      toast.error('Error saving rental: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -113,14 +204,22 @@ const RentalAddEdit = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
+      data.startDate = new Date(data.startDate).toISOString().split('T')[0];
+      data.endDate = new Date(data.endDate).toISOString().split('T')[0];
       setFormData(data);
+      setOriginalItems(data.items);
     } catch (err) {
       setError('Failed to load rental');
     }
   };
 
   useEffect(() => {
-    if (isEditMode) fetchRental();
+    if (isEditMode) {
+      fetchRental();
+    } else {
+      const today = new Date().toISOString().split('T')[0];
+      setFormData(prev => ({ ...prev, startDate: today }));
+    }
   }, [id]);
 
   return (
@@ -132,171 +231,48 @@ const RentalAddEdit = () => {
       {error && <p className="text-red-500 mb-2">{error}</p>}
 
       <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded-lg shadow-md border">
-        {/* Customer Fields */}
-        <div className="relative">
-          <label className="block text-sm font-medium text-gray-700">Customer Name</label>
-          <input
-            type="text"
-            name="customerName"
-            value={formData.customerName}
-            onChange={handleChange}
-            required
-            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
-          />
-          {suggestions.customerName_0?.length > 0 && (
-            <ul className="absolute z-10 w-full bg-white border rounded shadow max-h-40 overflow-y-auto">
-              {suggestions.customerName_0.map((cust, i) => (
-                <li key={i} onClick={() => {
-                  setFormData(prev => ({
-                    ...prev,
-                    customerName: cust.name,
-                    mobile: cust.mobile || '',
-                    nicOrLicense: cust.nicOrLicense || ''
-                  }));
-                  setSuggestions(prev => ({ ...prev, customerName_0: [] }));
-                }} className="px-2 py-1 hover:bg-blue-100 cursor-pointer">
-                  {cust.name}
-                </li>
-              ))}
-            </ul>
-          )}
+        <input type="text" name="customerName" value={formData.customerName} onChange={handleChange} placeholder="Customer Name" className="w-full p-2 border rounded" list="customerName_suggest" />
+        <datalist id="customerName_suggest">
+          {(suggestions['customerName_0'] || []).map((s, i) => <option key={i} value={s.name} />)}
+        </datalist>
+        <input type="text" name="mobile" value={formData.mobile} onChange={handleChange} placeholder="Mobile" className="w-full p-2 border rounded" />
+        <input type="text" name="nicOrLicense" value={formData.nicOrLicense} onChange={handleChange} placeholder="NIC or License" className="w-full p-2 border rounded" />
+        <input type="date" name="startDate" value={formData.startDate} onChange={handleChange} className="w-full p-2 border rounded" readOnly />
+        <input type="date" name="endDate" value={formData.endDate} onChange={handleChange} className="w-full p-2 border rounded" />
+
+        {formData.items.map((item, index) => (
+          <div key={index} className="grid grid-cols-6 gap-2 items-center">
+            <input type="text" value={item.itemName} onChange={(e) => handleChange(e, index, 'itemName')} placeholder="Item Name" className="col-span-1 p-2 border rounded" list={`itemName_suggest_${index}`} />
+            <datalist id={`itemName_suggest_${index}`}>
+              {(suggestions[`itemName_${index}`] || []).map((s, i) => <option key={i} value={s} />)}
+            </datalist>
+            <input type="text" value={item.model} onChange={(e) => handleChange(e, index, 'model')} placeholder="Model" className="col-span-1 p-2 border rounded" list={`model_suggest_${index}`} />
+            <datalist id={`model_suggest_${index}`}>
+              {(suggestions[`model_${index}`] || []).map((s, i) => <option key={i} value={s} />)}
+            </datalist>
+            <input type="number" value={item.quantity} onChange={(e) => handleChange(e, index, 'quantity')} placeholder="Qty" className="col-span-1 p-2 border rounded" />
+            <input type="text" value={item.price} readOnly placeholder="Price" className="col-span-1 p-2 border rounded bg-gray-100" />
+            <input type="text" value={item.total} readOnly placeholder="Total" className="col-span-1 p-2 border rounded bg-gray-100" />
+            <button type="button" onClick={() => removeItemRow(index)} className="col-span-1 text-red-600"><Trash size={18} /></button>
+          </div>
+        ))}
+        <button type="button" onClick={addItemRow} className="text-blue-600 flex items-center gap-1 text-sm"><Plus size={16} /> Add Item</button>
+
+        <input type="number" name="amountPaid" value={formData.amountPaid} onChange={handleChange} placeholder="Amount Paid" className="w-full p-2 border rounded" />
+
+        <div className="text-sm text-gray-600 mt-4 bg-gray-50 p-4 rounded border">
+          <p><strong>Number of Days:</strong> {formData.numberOfDays}</p>
+          <p><strong>Grand Total:</strong> Rs. {formData.grandTotal}</p>
+          <p><strong>Amount Paid:</strong> Rs. {formData.amountPaid || 0}</p>
+          <p><strong>Remaining:</strong> Rs. {formData.remainingAmount}</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Mobile</label>
-            <input
-              type="text"
-              name="mobile"
-              value={formData.mobile}
-              onChange={handleChange}
-              className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
-              placeholder="Auto-filled or enter manually"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">NIC / License</label>
-            <input
-              type="text"
-              name="nicOrLicense"
-              value={formData.nicOrLicense}
-              onChange={handleChange}
-              className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
-              placeholder="Auto-filled or enter manually"
-            />
-          </div>
-        </div>
-
-        {/* Date Fields */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Start Date</label>
-            <input type="date" name="startDate" value={formData.startDate?.split('T')[0]} onChange={handleChange} required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">End Date</label>
-            <input type="date" name="endDate" value={formData.endDate?.split('T')[0]} onChange={handleChange} required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
-          </div>
-        </div>
-
-        {/* Items Section */}
-        <div>
-          <h3 className="font-semibold text-gray-800 mb-2">Items</h3>
-          {formData.items.map((item, index) => (
-            <div key={index} className="grid grid-cols-6 gap-2 mb-2 relative">
-              {/* Item Name */}
-              <div className="relative">
-                <input type="text" placeholder="Item Name" value={item.itemName} onChange={(e) => handleChange(e, index, 'itemName')} className="border rounded px-2 py-1 w-full" />
-                {suggestions[`itemName_${index}`]?.length > 0 && (
-                  <ul className="absolute z-10 bg-white border w-full max-h-40 overflow-y-auto shadow rounded text-sm">
-                    {suggestions[`itemName_${index}`].map((s, i) => (
-                      <li key={i} onClick={() => {
-                        const updated = [...formData.items];
-                        updated[index].itemName = s;
-                        setFormData({ ...formData, items: updated });
-                        setSuggestions(prev => ({ ...prev, [`itemName_${index}`]: [] }));
-                      }} className="px-2 py-1 hover:bg-blue-100 cursor-pointer">{s}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              {/* Model */}
-              <div className="relative">
-                <input type="text" placeholder="Model" value={item.model} onChange={(e) => handleChange(e, index, 'model')} className="border rounded px-2 py-1 w-full" />
-                {suggestions[`model_${index}`]?.length > 0 && (
-                  <ul className="absolute z-10 bg-white border w-full max-h-40 overflow-y-auto shadow rounded text-sm">
-                    {suggestions[`model_${index}`].map((s, i) => (
-                      <li key={i} onClick={() => {
-                        const updated = [...formData.items];
-                        updated[index].model = s;
-                        setFormData({ ...formData, items: updated });
-                        setSuggestions(prev => ({ ...prev, [`model_${index}`]: [] }));
-                      }} className="px-2 py-1 hover:bg-blue-100 cursor-pointer">{s}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              {/* Quantity, Price, Total */}
-              <input type="number" placeholder="Qty" value={item.quantity} onChange={(e) => handleChange(e, index, 'quantity')} className="border rounded px-2 py-1" />
-              <input type="number" placeholder="Price" value={item.price} onChange={(e) => handleChange(e, index, 'price')} className="border rounded px-2 py-1" />
-              <input type="text" placeholder="Total" value={item.total} readOnly className="bg-gray-100 border rounded px-2 py-1" />
-
-              {/* Remove Button */}
-              <button type="button" onClick={() => removeItemRow(index)} className="text-red-500 text-xs hover:underline mt-2">
-                Remove
-              </button>
-            </div>
-          ))}
-
-          <button type="button" onClick={addItemRow} className="mt-2 text-blue-600 flex items-center gap-1 text-sm hover:underline">
-            <Plus size={14} /> Add Item
-          </button>
-        </div>
-      {/* End of Items Section */}
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Amount Paid</label>
-        <input
-          type="number"
-          name="amountPaid"
-          value={formData.amountPaid}
-          onChange={handleChange}
-          placeholder="Enter amount paid"
-          className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
-        />
-      </div>
-
-      <div className="text-sm text-gray-600 mt-4 bg-gray-50 p-4 rounded border">
-        <p><strong>Number of Days:</strong> {calculateDays()}</p>
-        <p><strong>Grand Total:</strong> Rs. {calculateGrandTotal()}</p>
-        <p><strong>Amount Paid:</strong> Rs. {formData.amountPaid || 0}</p>
-        <p><strong>Remaining:</strong> Rs. {calculateRemaining()}</p>
-      </div>
-
-      <button type="submit" disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 flex items-center gap-2">
-        <Save size={16} /> {isEditMode ? 'Update Rental' : 'Save Rental'}
-      </button>
-    </form>
-  </div>
+        <button type="submit" disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 flex items-center gap-2">
+          <Save size={16} /> {isEditMode ? 'Update Rental' : 'Save Rental'}
+        </button>
+      </form>
+    </div>
   );
-
-  // Utility functions moved outside of JSX
-  function calculateDays() {
-    const start = new Date(formData.startDate);
-    const end = new Date(formData.endDate);
-    const timeDiff = end - start;
-    return timeDiff >= 0 ? Math.floor(timeDiff / (1000 * 60 * 60 * 24)) + 1 : 0;
-  }
-
-  function calculateGrandTotal() {
-    return formData.items.reduce((sum, item) => sum + parseFloat(item.total || 0), 0).toFixed(2);
-  }
-
-  function calculateRemaining() {
-    return (calculateGrandTotal() - parseFloat(formData.amountPaid || 0)).toFixed(2);
-  }
 };
 
 export default RentalAddEdit;
